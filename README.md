@@ -12,3 +12,4 @@ Wanna use it? okay then just follow these simple steps:
 7. Have fun!
 
 • The /public folder is where you put the images and 3D models.
+# audio-visualizer
