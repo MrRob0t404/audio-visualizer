@@ -114,23 +114,37 @@ scene.add(mesh);
 const listener = new THREE.AudioListener();
 camera.add(listener);
 
-const sound = new THREE.Audio(listener);
+let analyser;
 
-const audioLoader = new THREE.AudioLoader();
-audioLoader.load('./public/audio_files/test.mp3', function (buffer) {
-    sound.setBuffer(buffer);
-    let flag = false;
-    window.addEventListener('click', function () {
-        flag = !flag;
-        flag ? sound.play() : sound.pause();
+navigator.mediaDevices.getUserMedia({ audio: true, video: false })
+    .then((stream) => {
+        const audioContext = listener.context;
+        if (audioContext.state === 'suspended') {
+            audioContext.resume();
+        }
+
+        const micSource = audioContext.createMediaStreamSource(stream);
+        // Optional: We can connect to output so you can hear yourself (use headphones)
+        // micSource.connect(audioContext.destination);
+
+        const sound = new THREE.Audio(listener);
+        sound.setNodeSource(micSource);
+        sound.setVolume(1.0); // full volume to get better response
+
+        // Delay slightly to let the stream start before analyzing
+        setTimeout(() => {
+            analyser = new THREE.AudioAnalyser(sound, 32); // use more bins
+        }, 10);
+    })
+    .catch((err) => {
+        console.error('Microphone access error:', err);
     });
-});
-
-const analyser = new THREE.AudioAnalyser(sound, 32);
 
 function animate() {
     uniforms.u_time.value = clock.getElapsedTime();
-    uniforms.u_frequency.value = analyser.getAverageFrequency();
+    if (analyser) {
+        uniforms.u_frequency.value = analyser.getAverageFrequency();
+    }
     bloomComposer.render();
     requestAnimationFrame(animate);
 }
