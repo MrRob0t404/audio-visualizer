@@ -18,6 +18,63 @@ const params = {
     radius: 0.8,
 };
 
+// MIDI CONTROLS
+navigator.requestMIDIAccess().then(onMIDISuccess, onMIDIFailure);
+
+function onMIDISuccess(midiAccess) {
+    for (let input of midiAccess.inputs.values()) {
+        input.onmidimessage = handleMIDIMessage;
+    }
+}
+
+function onMIDIFailure() {
+    console.warn('Could not access your MIDI devices.');
+}
+
+function handleMIDIMessage(message) {
+    const [status, controlNumber, value] = message.data;
+
+    if (status === 176) { // Control Change messages
+        const normalized = value / 127;
+
+        switch (controlNumber) {
+            case 22: // Knob 1 - Red
+                params.red = normalized;
+                uniforms.u_red.value = normalized;
+                break;
+            case 24: // Knob 2 - Green
+                params.green = normalized;
+                uniforms.u_green.value = normalized;
+                break;
+            case 26: // Knob 3 - Blue
+                params.blue = normalized;
+                uniforms.u_blue.value = normalized;
+                break;
+            case 23: // Knob 4 - Bloom Strength (0–3)
+                const s = normalized * 3;
+                params.strength = s;
+                bloomPass.strength = s;
+                break;
+            case 25: // Knob 5 - Threshold
+                params.threshold = normalized;
+                bloomPass.threshold = normalized;
+                break;
+            case 27: // Knob 6 - Radius
+                params.radius = normalized;
+                bloomPass.radius = normalized;
+                break;
+        }
+
+        redControl.updateDisplay();
+        greenControl.updateDisplay();
+        blueControl.updateDisplay();
+        strengthControl.updateDisplay();
+        thresholdControl.updateDisplay();
+        radiusControl.updateDisplay();
+
+    }
+}
+
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
 document.body.appendChild(renderer.domElement);
@@ -55,6 +112,7 @@ const renderScene = new RenderPass(scene, camera);
 const bloomPass = new UnrealBloomPass(
     new THREE.Vector2(window.innerWidth, window.innerHeight)
 );
+
 bloomPass.threshold = params.threshold;
 bloomPass.strength = params.strength;
 bloomPass.radius = params.radius;
@@ -69,24 +127,24 @@ bloomComposer.addPass(outputPass);
 const gui = new GUI();
 
 const colorsFolder = gui.addFolder('Colors');
-colorsFolder.add(params, 'red', 0, 1).onChange(function (value) {
+const redControl = colorsFolder.add(params, 'red', 0, 1).onChange((value) => {
     uniforms.u_red.value = Number(value);
 });
-colorsFolder.add(params, 'green', 0, 1).onChange(function (value) {
+const greenControl = colorsFolder.add(params, 'green', 0, 1).onChange((value) => {
     uniforms.u_green.value = Number(value);
 });
-colorsFolder.add(params, 'blue', 0, 1).onChange(function (value) {
+const blueControl = colorsFolder.add(params, 'blue', 0, 1).onChange((value) => {
     uniforms.u_blue.value = Number(value);
 });
 
 const bloomFolder = gui.addFolder('Bloom');
-bloomFolder.add(params, 'threshold', 0, 1).onChange(function (value) {
-    bloomPass.threshold = Number(value);
-});
-bloomFolder.add(params, 'strength', 0, 3).onChange(function (value) {
+const strengthControl = bloomFolder.add(params, 'strength', 0, 3).onChange((value) => {
     bloomPass.strength = Number(value);
 });
-bloomFolder.add(params, 'radius', 0, 1).onChange(function (value) {
+const thresholdControl = bloomFolder.add(params, 'threshold', 0, 1).onChange((value) => {
+    bloomPass.threshold = Number(value);
+});
+const radiusControl = bloomFolder.add(params, 'radius', 0, 1).onChange((value) => {
     bloomPass.radius = Number(value);
 });
 
@@ -115,7 +173,6 @@ const listener = new THREE.AudioListener();
 camera.add(listener);
 
 let analyser;
-
 navigator.mediaDevices.getUserMedia({ audio: true, video: false })
     .then((stream) => {
         const audioContext = listener.context;
@@ -124,16 +181,14 @@ navigator.mediaDevices.getUserMedia({ audio: true, video: false })
         }
 
         const micSource = audioContext.createMediaStreamSource(stream);
-        // Optional: We can connect to output so you can hear yourself (use headphones)
-        // micSource.connect(audioContext.destination);
+        // micSource.connect(audioContext.destination); // optional
 
         const sound = new THREE.Audio(listener);
         sound.setNodeSource(micSource);
-        sound.setVolume(1.0); // full volume to get better response
+        sound.setVolume(1.0);
 
-        // Delay slightly to let the stream start before analyzing
         setTimeout(() => {
-            analyser = new THREE.AudioAnalyser(sound, 32); // use more bins
+            analyser = new THREE.AudioAnalyser(sound, 32);
         }, 10);
     })
     .catch((err) => {
