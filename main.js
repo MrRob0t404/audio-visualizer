@@ -39,16 +39,16 @@ const orbit = new OrbitControls(camera, renderer.domElement);
 
 // Camera positioning.
 camera.position.set(6, 8, 14);
-// Has to be done everytime we update the camera position.
+// Has to be done every time we update the camera position.
 orbit.update();
 
 // Creates a 12 by 12 grid helper.
 const gridHelper = new THREE.GridHelper(12, 12);
-scene.add(gridHelper);
+// scene.add(gridHelper);
 
 // Creates an axes helper with an axis length of 4.
 const axesHelper = new THREE.AxesHelper(4);
-scene.add(axesHelper);
+// scene.add(axesHelper);
 
 const renderScene = new RenderPass(scene, camera);
 
@@ -145,6 +145,10 @@ function animate() {
     if (analyser) {
         uniforms.u_frequency.value = analyser.getAverageFrequency();
     }
+
+    mesh.rotation.x += 0.0001;
+    mesh.rotation.y += 0.0001;
+
     bloomComposer.render();
     requestAnimationFrame(animate);
 }
